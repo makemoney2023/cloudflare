@@ -1,7 +1,7 @@
 name = "agent-swarm-orchestrator"
 main = "src/index.ts"
 compatibility_date = "2024-09-01"
-account_id = "b7736584eef97989db8f42832b1ba2d2"
+account_id = "f3a02fce228ba44084f60310a435acc1"
 
 [ai]
 binding = "AI"
