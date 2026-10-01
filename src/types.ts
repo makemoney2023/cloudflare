@@ -6,6 +6,21 @@ export interface AgentNode {
   name: string;
   instructions: string;
   position: { x: number; y: number };
+  /** MCP server IDs this node may call. Undefined/empty = all workflow servers. */
+  mcpServerIds?: string[];
+}
+
+export interface McpServerConfig {
+  id: string;
+  name: string;
+  url: string;
+  headers?: Record<string, string>;
+}
+
+/** Suggested external data for a template (labels only — user supplies URLs). */
+export interface SuggestedMcp {
+  label: string;
+  why: string;
 }
 
 export interface AgentEdge {
@@ -20,6 +35,8 @@ export interface Workflow {
   nodes: AgentNode[];
   edges: AgentEdge[];
   createdAt: number;
+  /** Remote MCP servers available to this workflow's agents. */
+  mcpServers?: McpServerConfig[];
 }
 
 export type NodeStatus = 'idle' | 'running' | 'done' | 'error';
@@ -31,6 +48,7 @@ export interface NodeResult {
   error?: string;
   startedAt?: number;
   finishedAt?: number;
+  toolsUsed?: { server: string; tool: string }[];
 }
 
 export interface WorkflowExecution {
@@ -44,12 +62,17 @@ export interface WorkflowExecution {
 }
 
 export interface WSMessage {
-  type: 'node_start' | 'node_output' | 'node_done' | 'node_error' | 'workflow_complete' | 'workflow_error';
+  type: 'node_start' | 'node_output' | 'node_done' | 'node_error' | 'workflow_complete' | 'workflow_error' | 'node_tool';
   executionId: string;
   nodeId?: string;
   output?: string;
   error?: string;
   timestamp: number;
+  /** Present for node_tool messages. */
+  phase?: 'call' | 'result';
+  server?: string;
+  tool?: string;
+  summary?: string;
 }
 
 export interface AgentMemory {
@@ -70,6 +93,7 @@ export interface WorkflowTemplate {
   description: string;
   nodes: AgentNode[];
   edges: AgentEdge[];
+  suggestedMcp?: SuggestedMcp[];
 }
 
 export interface Artifact {
@@ -194,6 +218,10 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
     id: 'support-triage',
     name: 'Support Triage & Reply',
     description: 'Hackathon CX track: thread → triage → drafted reply. Summarize → Critique → Write → Publish',
+    suggestedMcp: [
+      { label: 'Ticketing MCP (e.g. Zendesk, Intercom)', why: 'Pull the live thread, customer tier, and history instead of pasting text.' },
+      { label: 'Knowledge-base MCP', why: 'Ground the drafted reply in current help-center articles.' },
+    ],
     nodes: [
       { id: 't5-sum', type: 'summarizer', name: 'Thread Summarizer', instructions: 'Distill the support thread to: customer intent, urgency (P0-P3), sentiment, and the exact ask. Output 5 bullets max.', position: { x: 50, y: 100 } },
       { id: 't5-critic', type: 'critic', name: 'Policy Checker', instructions: 'Check the summary against support policy: what can we promise, what needs escalation, what info is missing? List risks and blockers.', position: { x: 350, y: 100 } },
@@ -210,6 +238,10 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
     id: 'code-review',
     name: 'Code Review Squad',
     description: 'Hackathon dev-tool track: understand → red-team → fix → checklist',
+    suggestedMcp: [
+      { label: 'Git hosting MCP (e.g. GitHub)', why: 'Fetch the PR diff, files, and CI status directly by PR number.' },
+      { label: 'Docs MCP', why: 'Check API usage against current library docs while reviewing.' },
+    ],
     nodes: [
       { id: 't6-res', type: 'researcher', name: 'Code Reader', instructions: 'Explain what the pasted code/diff does: entry points, data flow, dependencies. Keep it to 6 bullets so reviewers have context.', position: { x: 50, y: 100 } },
       { id: 't6-critic', type: 'critic', name: 'Bug Hunter', instructions: 'Red-team the code for bugs, security issues (injection, auth, secrets), perf traps, and edge cases. Rank findings P0-P2 with line hints.', position: { x: 350, y: 100 } },
@@ -226,6 +258,10 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
     id: 'startup-validator',
     name: 'Startup Pitch Validator',
     description: 'Hackathon startup track: 3 parallel researchers → red-team → pitch',
+    suggestedMcp: [
+      { label: 'Web search MCP', why: 'Live market sizing, competitor pricing, and news for the researchers.' },
+      { label: 'Docs MCP', why: 'Verify Cloudflare architecture claims for the feasibility brief.' },
+    ],
     nodes: [
       { id: 't7-mkt', type: 'researcher', name: 'Market Researcher', instructions: 'Size the market for the idea: ICP, competitors, pricing comps, wedge. 5 bullets with numbers where possible.', position: { x: 50, y: 50 } },
       { id: 't7-tech', type: 'researcher', name: 'Tech Feasibility', instructions: 'Assess build feasibility on Cloudflare (Workers, AI, DO, R2): architecture sketch, hardest part, effort estimate.', position: { x: 50, y: 200 } },
@@ -244,6 +280,10 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
     id: 'fact-check',
     name: 'Fact-Check Desk',
     description: 'Hackathon trust track: research → verify → correct → publish with sources',
+    suggestedMcp: [
+      { label: 'Web search MCP', why: 'Verify claims against live sources instead of model memory.' },
+      { label: 'Fetch MCP', why: 'Pull full page content for the URLs the researcher cites.' },
+    ],
     nodes: [
       { id: 't8-res', type: 'researcher', name: 'Claim Extractor', instructions: 'Extract every factual claim from the input as a numbered list. Separate facts from opinions.', position: { x: 50, y: 100 } },
       { id: 't8-critic', type: 'critic', name: 'Verifier', instructions: 'Verify each claim: Supported / Disputed / Unverifiable. Flag hallucinations, stale stats, and missing context. Be strict.', position: { x: 350, y: 100 } },

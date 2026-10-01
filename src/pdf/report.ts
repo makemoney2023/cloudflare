@@ -495,6 +495,7 @@ function drawAgentSection(
   outputLen: number,
   body: string | null,
   error: string | null,
+  toolsUsed: { server: string; tool: string }[] = [],
 ) {
   ensureSpace(ctx, 110);
   ctx.y -= 2;
@@ -529,7 +530,11 @@ function drawAgentSection(
   const fg = failed ? ERROR : status === 'DONE' ? SUCCESS : MUTED;
   const bg = failed ? ERROR_BG : status === 'DONE' ? SUCCESS_BG : CARD_BG;
   const bw = drawBadge(ctx, MARGIN + 26, ctx.y - 2, badgeText, fg, bg);
-  const meta = sanitize(`${duration}   ·   ${outputLen > 0 ? `${formatChars(outputLen)} chars` : 'no output'}`);
+  let metaText = `${duration}   ·   ${outputLen > 0 ? `${formatChars(outputLen)} chars` : 'no output'}`;
+  if (toolsUsed.length > 0) {
+    metaText += `   ·   via MCP: ${toolsUsed.map((t) => `${t.server}/${t.tool}`).join(', ').slice(0, 120)}`;
+  }
+  const meta = sanitize(metaText);
   ctx.page.drawText(meta, { x: MARGIN + 26 + bw + 8, y: ctx.y - 8, size: 9, font: ctx.body, color: MUTED });
   ctx.y -= 20;
 
@@ -704,6 +709,7 @@ export async function generateReportPdf(
       outputLen,
       result?.output ?? null,
       result?.error ?? null,
+      result?.toolsUsed ?? [],
     );
     if (idx < workflow.nodes.length - 1) drawRule(ctx, 12);
   });

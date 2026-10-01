@@ -10,6 +10,7 @@ import {
   PenLine,
   ScanSearch,
   Search,
+  Wrench,
 } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
@@ -32,6 +33,10 @@ export interface AgentNodeData {
   instructions: string;
   status: NodeStatus;
   output: string;
+  /** MCP server IDs enabled for this node. Undefined = all workflow servers. */
+  mcpServerIds?: string[];
+  /** Tools called during the last run, as "server/tool". */
+  toolsUsed: string[];
 }
 
 const STATUS_VARIANT: Record<NodeStatus, 'idle' | 'running' | 'success' | 'error'> = {
@@ -88,6 +93,16 @@ function AgentNodeInner({ data, selected }: NodeProps<AgentNodeData>) {
               <Badge variant="secondary" className="h-4 gap-0.5 px-1 text-[10px]">
                 <Brain className="h-2.5 w-2.5" />
                 {memoryCount}
+              </Badge>
+            )}
+            {(data.toolsUsed?.length ?? 0) > 0 && (
+              <Badge
+                variant="secondary"
+                className="h-4 gap-0.5 px-1 text-[10px]"
+                title={'MCP tools used:\n' + (data.toolsUsed ?? []).join('\n')}
+              >
+                <Wrench className="h-2.5 w-2.5" />
+                {(data.toolsUsed ?? []).length}
               </Badge>
             )}
           </div>

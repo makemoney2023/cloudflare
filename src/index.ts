@@ -1,4 +1,5 @@
 import { WorkflowDO } from './do/WorkflowDO';
+import { handleDemoMcp } from './mcp/demo';
 
 export { WorkflowDO };
 
@@ -12,6 +13,11 @@ export interface Env {
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
+
+    // Self-hosted demo MCP server (zero-setup tool testing)
+    if (url.pathname === '/demo-mcp/mcp') {
+      return handleDemoMcp(request);
+    }
 
     // Durable Object routing for the API (live execution, state, memory, artifacts)
     if (url.pathname.startsWith('/api/')) {

@@ -21,6 +21,14 @@ export interface TemplateMeta {
   id: string;
   name: string;
   desc: string;
+  mcpHint?: string;
+}
+
+export interface McpServerConfig {
+  id: string;
+  name: string;
+  url: string;
+  headers?: Record<string, string>;
 }
 
 export const AGENT_META: Record<
@@ -76,10 +84,10 @@ export const TEMPLATES: TemplateMeta[] = [
   { id: 'research-report', name: 'Research Report', desc: 'Research → Summarize → Write → Edit' },
   { id: 'content-critique', name: 'Content Critique', desc: 'Write → Critique → Edit → Publish' },
   { id: 'parallel-research', name: 'Parallel Research', desc: '3 Researchers → Merge → Write' },
-  { id: 'support-triage', name: 'Support Triage & Reply', desc: 'Summarize → Check → Reply → Ticket' },
-  { id: 'code-review', name: 'Code Review Squad', desc: 'Read → Hunt bugs → Fix → Checklist' },
-  { id: 'startup-validator', name: 'Startup Pitch Validator', desc: '3 Researchers → Red-team → Pitch' },
-  { id: 'fact-check', name: 'Fact-Check Desk', desc: 'Extract → Verify → Correct → Cite' },
+  { id: 'support-triage', name: 'Support Triage & Reply', desc: 'Summarize → Check → Reply → Ticket', mcpHint: 'Works best with a ticketing MCP + knowledge-base MCP.' },
+  { id: 'code-review', name: 'Code Review Squad', desc: 'Read → Hunt bugs → Fix → Checklist', mcpHint: 'Works best with a git-hosting MCP + docs MCP.' },
+  { id: 'startup-validator', name: 'Startup Pitch Validator', desc: '3 Researchers → Red-team → Pitch', mcpHint: 'Works best with a web-search MCP + docs MCP.' },
+  { id: 'fact-check', name: 'Fact-Check Desk', desc: 'Extract → Verify → Correct → Cite', mcpHint: 'Works best with a web-search MCP + fetch MCP.' },
 ];
 
 export interface AgentPreset {

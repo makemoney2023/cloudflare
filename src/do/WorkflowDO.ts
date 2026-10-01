@@ -1,7 +1,8 @@
-import type { Workflow, WorkflowExecution, WSMessage, NodeResult, AgentMemory, MemoryEntry, Artifact, WorkflowTemplate } from '../types';
+import type { Workflow, WorkflowExecution, WSMessage, NodeResult, AgentMemory, MemoryEntry, Artifact, WorkflowTemplate, McpServerConfig } from '../types';
 import { runAgent } from '../ai/agents';
 import { WORKFLOW_TEMPLATES } from '../types';
 import { generateReportPdf } from '../pdf/report';
+import { McpClient, type McpToolDef } from '../mcp/client';
 
 export class WorkflowDO {
   private state: DurableObjectState;
@@ -165,6 +166,24 @@ export class WorkflowDO {
       });
     }
 
+    // Test an MCP server connection (lists its tools)
+    if (url.pathname === '/mcp/test' && request.method === 'POST') {
+      const body = await request.json() as { url?: string; headers?: Record<string, string> };
+      if (!body || typeof body.url !== 'string' || !/^https?:\/\//.test(body.url)) {
+        return Response.json({ ok: false, error: 'Provide an http(s) MCP server URL.' }, { status: 400 });
+      }
+      try {
+        const client = new McpClient({ id: 'test', name: 'test', url: body.url, headers: body.headers });
+        const tools = await client.listTools();
+        return Response.json({
+          ok: true,
+          tools: tools.map((t) => ({ name: t.name, description: t.description })),
+        });
+      } catch (e: any) {
+        return Response.json({ ok: false, error: e?.message || 'Connection failed.' });
+      }
+    }
+
     // Get memory for an agent type
     if (url.pathname === '/memory' && request.method === 'GET') {
       const agentType = url.searchParams.get('agentType');
@@ -326,12 +345,24 @@ export class WorkflowDO {
 
             try {
               let output = '';
+              const toolsUsed: { server: string; tool: string }[] = [];
+
+              // Resolve this node's MCP servers (node selection, else all workflow servers).
+              const servers = this.resolveNodeServers(workflow, node);
+              const mcpTools = await this.collectNodeTools(servers);
+
               const result = await runAgent(
                 node.type,
                 {
                   input: nodeInput + memoryContext,
                   instructions: node.instructions,
                   name: node.name,
+                  mcpTools,
+                  executeTool: async (serverId, tool, args) => {
+                    const server = servers.find((s) => s.id === serverId);
+                    if (!server) throw new Error(`Unknown MCP server: ${serverId}`);
+                    return new McpClient(server).callTool(tool, args);
+                  },
                   onToken: (token) => {
                     output += token;
                     this.broadcast(executionId, {
@@ -342,19 +373,34 @@ export class WorkflowDO {
                       timestamp: Date.now(),
                     });
                   },
+                  onToolEvent: (e) => {
+                    this.broadcast(executionId, {
+                      type: 'node_tool',
+                      executionId,
+                      nodeId,
+                      phase: e.phase,
+                      server: e.server,
+                      tool: e.tool,
+                      summary: e.summary,
+                      timestamp: Date.now(),
+                    });
+                  },
                 },
                 this.env,
               );
+              output = result.output;
+              toolsUsed.push(...result.toolsUsed);
 
               const doneResult: NodeResult = {
                 nodeId,
                 status: 'done',
-                output: result,
+                output: result.output,
                 startedAt: startResult.startedAt,
                 finishedAt: Date.now(),
+                toolsUsed,
               };
               execution.results[nodeId] = doneResult;
-              nodeOutputs[nodeId] = result;
+              nodeOutputs[nodeId] = result.output;
 
               // Store artifact
               const artifact: Artifact = {
@@ -362,7 +408,7 @@ export class WorkflowDO {
                 executionId,
                 nodeId,
                 nodeName: node.name,
-                content: result,
+                content: result.output,
                 timestamp: Date.now(),
               };
               if (!this.artifacts.has(executionId)) {
@@ -372,13 +418,13 @@ export class WorkflowDO {
               await this.state.storage.put(`art:${executionId}`, this.artifacts.get(executionId));
 
               // Store memory
-              this.addMemory(node.type, result, executionId);
+              this.addMemory(node.type, result.output, executionId);
 
               this.broadcast(executionId, {
                 type: 'node_done',
                 executionId,
                 nodeId,
-                output: result,
+                output: result.output,
                 timestamp: Date.now(),
               });
             } catch (error: any) {
@@ -443,6 +489,29 @@ export class WorkflowDO {
         timestamp: Date.now(),
       });
     }
+  }
+
+  /** Servers a node may call: its selection, or all workflow servers when unset. Empty = none. */
+  private resolveNodeServers(workflow: Workflow, node: { mcpServerIds?: string[] }): McpServerConfig[] {
+    const all = workflow.mcpServers ?? [];
+    if (!node.mcpServerIds) return all;
+    const ids = new Set(node.mcpServerIds);
+    return all.filter((s) => ids.has(s.id));
+  }
+
+  /** Best-effort tool discovery across a node's servers (unreachable = skipped). */
+  private async collectNodeTools(servers: McpServerConfig[]): Promise<McpToolDef[]> {
+    const tools: McpToolDef[] = [];
+    await Promise.all(
+      servers.map(async (server) => {
+        try {
+          tools.push(...(await new McpClient(server).listTools()));
+        } catch {
+          // Unreachable server: agent proceeds without its tools.
+        }
+      }),
+    );
+    return tools;
   }
 
   private addMemory(agentType: string, content: string, executionId: string) {

@@ -22,6 +22,7 @@ import {
   Package,
   PenLine,
   Play,
+  Plug,
   Plus,
   Save,
   ScanSearch,
@@ -31,6 +32,7 @@ import {
 
 import { AgentNode, type AgentNodeData } from '@/components/AgentNode';
 import { AboutDialog } from '@/components/AboutDialog';
+import { McpDialog } from '@/components/McpDialog';
 import { ArtifactPanel } from '@/components/ArtifactPanel';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -47,7 +49,7 @@ import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { Toaster, toast } from '@/components/ui/sonner';
 import { Textarea } from '@/components/ui/textarea';
-import { AGENT_META, PRESET_GROUPS, TEMPLATES, type AgentPreset, type AgentType, type Artifact } from '@/lib/agents';
+import { AGENT_META, PRESET_GROUPS, TEMPLATES, type AgentPreset, type AgentType, type Artifact, type McpServerConfig } from '@/lib/agents';
 
 const nodeTypes = { agent: AgentNode };
 
@@ -63,12 +65,16 @@ const ADD_ICONS = {
 } as const;
 
 interface WSMessage {
-  type: 'node_start' | 'node_output' | 'node_done' | 'node_error' | 'workflow_complete' | 'workflow_error';
+  type: 'node_start' | 'node_output' | 'node_done' | 'node_error' | 'workflow_complete' | 'workflow_error' | 'node_tool';
   executionId: string;
   nodeId?: string;
   output?: string;
   error?: string;
   timestamp: number;
+  phase?: 'call' | 'result';
+  server?: string;
+  tool?: string;
+  summary?: string;
 }
 
 export default function App() {
@@ -83,6 +89,8 @@ export default function App() {
   const [showArtifacts, setShowArtifacts] = useState(false);
   const [templatesOpen, setTemplatesOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [mcpOpen, setMcpOpen] = useState(false);
+  const [mcpServers, setMcpServers] = useState<McpServerConfig[]>([]);
   const wsRef = useRef<WebSocket | null>(null);
   const nodeIdCounter = useRef(0);
 
@@ -106,6 +114,8 @@ export default function App() {
         instructions: preset?.instructions ?? meta.instructions,
         status: 'idle',
         output: '',
+        mcpServerIds: undefined,
+        toolsUsed: [],
       },
     };
     setNodes((nds) => [...nds, newNode]);
@@ -121,7 +131,7 @@ export default function App() {
         return;
       }
       const newNodes: FlowNode[] = tmpl.nodes.map(
-        (n: { id: string; type: AgentType; name: string; instructions: string; position: { x: number; y: number } }) => ({
+        (n: { id: string; type: AgentType; name: string; instructions: string; mcpServerIds?: string[]; position: { x: number; y: number } }) => ({
           id: `${n.id}-${++nodeIdCounter.current}`,
           type: 'agent',
           position: n.position,
@@ -131,6 +141,8 @@ export default function App() {
             instructions: n.instructions,
             status: 'idle' as const,
             output: '',
+            mcpServerIds: n.mcpServerIds,
+            toolsUsed: [],
           },
         }),
       );
@@ -179,9 +191,11 @@ export default function App() {
       name: n.data.name,
       instructions: n.data.instructions,
       position: n.position,
+      mcpServerIds: n.data.mcpServerIds,
     })),
     edges: edges.map((e) => ({ id: e.id, source: e.source, target: e.target })),
     createdAt: Date.now(),
+    mcpServers,
   });
 
   const saveWorkflow = async () => {
@@ -216,7 +230,7 @@ export default function App() {
     setArtifacts([]);
     setShowArtifacts(true);
     setNodes((nds) =>
-      nds.map((n) => ({ ...n, data: { ...n.data, status: 'idle' as const, output: '' } })),
+      nds.map((n) => ({ ...n, data: { ...n.data, status: 'idle' as const, output: '', toolsUsed: [] } })),
     );
 
     try {
@@ -243,7 +257,17 @@ export default function App() {
 
       ws.onmessage = (event) => {
         const msg = JSON.parse(event.data) as WSMessage;
-        if (msg.nodeId) {
+        if (msg.type === 'node_tool' && msg.nodeId && msg.server && msg.tool) {
+          const label = `${msg.server}/${msg.tool}`;
+          setNodes((nds) =>
+            nds.map((n) =>
+              n.id === msg.nodeId && !(n.data.toolsUsed ?? []).includes(label)
+                ? { ...n, data: { ...n.data, toolsUsed: [...(n.data.toolsUsed ?? []), label] } }
+                : n,
+            ),
+          );
+        }
+        if (msg.nodeId && msg.type !== 'node_tool') {
           setNodes((nds) =>
             nds.map((n) => {
               if (n.id !== msg.nodeId) return n;
@@ -347,6 +371,14 @@ export default function App() {
         <Button variant="ghost" size="icon" title="How it's built" onClick={() => setAboutOpen(true)}>
           <Info />
         </Button>
+        <Button variant="ghost" size="icon" title="MCP servers" className="relative" onClick={() => setMcpOpen(true)}>
+          <Plug />
+          {mcpServers.length > 0 && (
+            <Badge variant="secondary" className="absolute -right-1 -top-1 h-4 min-w-4 px-1 text-[10px]">
+              {mcpServers.length}
+            </Badge>
+          )}
+        </Button>
         <Dialog open={templatesOpen} onOpenChange={setTemplatesOpen}>
           <DialogTrigger asChild>
             <Button variant="secondary">
@@ -370,6 +402,12 @@ export default function App() {
                 >
                   <div className="text-sm font-semibold">{tmpl.name}</div>
                   <div className="mt-0.5 text-xs text-muted-foreground">{tmpl.desc}</div>
+                  {tmpl.mcpHint && (
+                    <div className="mt-1.5 flex items-center gap-1 text-[11px] text-muted-foreground">
+                      <Plug className="h-3 w-3 shrink-0" />
+                      {tmpl.mcpHint}
+                    </div>
+                  )}
                 </button>
               ))}
             </div>
@@ -504,6 +542,48 @@ export default function App() {
                   onChange={(e) => updateNodeData(selectedNode.id, { instructions: e.target.value })}
                   className="h-20 resize-y text-xs"
                 />
+                {mcpServers.length > 0 && (
+                  <div className="space-y-1.5 rounded-lg border bg-muted/40 p-2.5">
+                    <div className="flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground">
+                      <Plug className="h-3 w-3" />
+                      MCP servers
+                    </div>
+                    {mcpServers.map((s) => {
+                      const enabled =
+                        !selectedNode.data.mcpServerIds || selectedNode.data.mcpServerIds.includes(s.id);
+                      return (
+                        <label key={s.id} className="flex cursor-pointer items-center gap-2 text-xs">
+                          <input
+                            type="checkbox"
+                            checked={enabled}
+                            className="h-3.5 w-3.5 accent-primary"
+                            onChange={() => {
+                              const current = selectedNode.data.mcpServerIds;
+                              if (!current) {
+                                // All enabled → narrow to all-but-this
+                                updateNodeData(selectedNode.id, {
+                                  mcpServerIds: mcpServers.filter((x) => x.id !== s.id).map((x) => x.id),
+                                });
+                              } else if (current.includes(s.id)) {
+                                updateNodeData(selectedNode.id, {
+                                  mcpServerIds: current.filter((id) => id !== s.id),
+                                });
+                              } else {
+                                updateNodeData(selectedNode.id, {
+                                  mcpServerIds: [...current, s.id],
+                                });
+                              }
+                            }}
+                          />
+                          <span className="truncate">{s.name}</span>
+                        </label>
+                      );
+                    })}
+                    <p className="text-[10px] leading-snug text-muted-foreground">
+                      Uncheck all to run this agent with no tools.
+                    </p>
+                  </div>
+                )}
                 <Button variant="destructive" size="sm" className="w-full" onClick={deleteSelected}>
                   <Trash2 />
                   Delete agent
@@ -562,6 +642,7 @@ export default function App() {
 
       <Toaster position="bottom-right" />
       <AboutDialog open={aboutOpen} onOpenChange={setAboutOpen} />
+      <McpDialog open={mcpOpen} onOpenChange={setMcpOpen} servers={mcpServers} onChange={setMcpServers} />
     </div>
   );
 }
