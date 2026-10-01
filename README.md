@@ -17,7 +17,11 @@ A visual multi-agent workflow builder for Cloudflare Workers. Drag-and-drop agen
 
 ```bash
 npm install
-npx wrangler dev
+npm --prefix frontend install
+
+# Build the UI, then start the Worker (serves frontend/dist + API)
+npm run build:ui
+npm run dev
 ```
 
 Open http://localhost:8787
@@ -25,7 +29,7 @@ Open http://localhost:8787
 ## Deploy
 
 ```bash
-npx wrangler deploy
+npm run deploy   # builds the UI, then deploys Worker + static assets
 ```
 
 See [DEPLOYMENT.md](./DEPLOYMENT.md) for full guide.
@@ -34,10 +38,10 @@ See [DEPLOYMENT.md](./DEPLOYMENT.md) for full guide.
 
 | Layer | Technology |
 |---|---|
-| Frontend | React 18, React Flow 11 |
+| Frontend | React 18, Vite, Tailwind CSS, shadcn/new-york components, React Flow 11, Lucide icons |
 | Backend | Cloudflare Workers |
 | State | Durable Objects |
-| AI | Workers AI (Llama 3.1 8B) |
+| AI | Workers AI (Llama 3.1 8B FP8, GLM fallbacks) |
 | Realtime | WebSockets |
 | Storage | R2 |
 
@@ -45,8 +49,19 @@ See [DEPLOYMENT.md](./DEPLOYMENT.md) for full guide.
 
 ```
 agent-swarm-orchestrator/
+├── frontend/               # Vite + React + Tailwind + shadcn UI
+│   ├── src/
+│   │   ├── App.tsx         # Main app (canvas, sidebar, dialogs)
+│   │   ├── main.tsx
+│   │   ├── index.css       # Tailwind + shadcn theme tokens
+│   │   ├── lib/            # cn() utils, agent metadata
+│   │   └── components/
+│   │       ├── AgentNode.tsx
+│   │       ├── ArtifactPanel.tsx
+│   │       └── ui/         # shadcn primitives (button, card, dialog, ...)
+│   └── dist/               # Build output, served as Worker static assets
 ├── src/
-│   ├── index.ts          # Worker entry + embedded frontend
+│   ├── index.ts          # Worker entry (API routing + static assets)
 │   ├── types.ts          # Shared types + templates
 │   ├── ai/
 │   │   └── agents.ts     # Workers AI integration

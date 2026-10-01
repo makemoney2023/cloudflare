@@ -11,17 +11,18 @@
 ```bash
 cd agent-swarm-orchestrator
 
-# 1. Install dependencies
+# 1. Install dependencies (Worker + UI)
 npm install
+npm --prefix frontend install
 
 # 2. Login to Cloudflare (first time only)
 npx wrangler login
 
-# 3. Create the R2 bucket (first time only)
+# 3. Create the R2 bucket (first time only, per account)
 npx wrangler r2 bucket create agent-swarm-artifacts
 
-# 4. Deploy
-npx wrangler deploy
+# 4. Build the UI and deploy everything
+npm run deploy
 ```
 
 ## What Gets Deployed

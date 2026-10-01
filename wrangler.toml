@@ -17,3 +17,9 @@ new_sqlite_classes = ["WorkflowDO"]
 [[r2_buckets]]
 binding = "ARTIFACTS"
 bucket_name = "agent-swarm-artifacts"
+
+[assets]
+directory = "./frontend/dist/"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+run_worker_first = true
