@@ -10,7 +10,8 @@ A visual multi-agent workflow builder for Cloudflare Workers. Drag-and-drop agen
 - **Live Streaming** — WebSocket-powered token-by-token output
 - **Agent Memory** — Agents remember context across executions
 - **Artifact Viewer** — Side panel showing all node outputs
-- **Template Workflows** — Pre-built pipelines (Blog Post, Research Report, Content Critique, Parallel Research)
+- **Template Workflows** — 8 pre-built pipelines: Blog Post, Research Report, Content Critique, Parallel Research, plus hackathon tracks — Support Triage, Code Review Squad, Startup Pitch Validator, Fact-Check Desk
+- **Finalized PDF Reports** — Cover page, run-summary stat cards, results table, full per-agent outputs, execution timeline, and quality checks; backed up to R2
 - **Cloudflare Native** — Workers AI, Durable Objects, WebSockets, R2
 
 ## Quick Start

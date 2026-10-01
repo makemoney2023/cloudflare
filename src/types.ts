@@ -190,4 +190,70 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
       { id: 't4-e4', source: 't4-summarizer', target: 't4-writer' },
     ],
   },
+  {
+    id: 'support-triage',
+    name: 'Support Triage & Reply',
+    description: 'Hackathon CX track: thread → triage → drafted reply. Summarize → Critique → Write → Publish',
+    nodes: [
+      { id: 't5-sum', type: 'summarizer', name: 'Thread Summarizer', instructions: 'Distill the support thread to: customer intent, urgency (P0-P3), sentiment, and the exact ask. Output 5 bullets max.', position: { x: 50, y: 100 } },
+      { id: 't5-critic', type: 'critic', name: 'Policy Checker', instructions: 'Check the summary against support policy: what can we promise, what needs escalation, what info is missing? List risks and blockers.', position: { x: 350, y: 100 } },
+      { id: 't5-writer', type: 'writer', name: 'Reply Drafter', instructions: 'Draft a warm, concise customer reply that answers the ask, sets expectations, and requests any missing info. No internal notes.', position: { x: 650, y: 100 } },
+      { id: 't5-pub', type: 'publisher', name: 'Ticket Publisher', instructions: 'Format the final ticket: TL;DR, priority, suggested macro, drafted reply, and next action for the agent. Use clear headings.', position: { x: 950, y: 100 } },
+    ],
+    edges: [
+      { id: 't5-e1', source: 't5-sum', target: 't5-critic' },
+      { id: 't5-e2', source: 't5-critic', target: 't5-writer' },
+      { id: 't5-e3', source: 't5-writer', target: 't5-pub' },
+    ],
+  },
+  {
+    id: 'code-review',
+    name: 'Code Review Squad',
+    description: 'Hackathon dev-tool track: understand → red-team → fix → checklist',
+    nodes: [
+      { id: 't6-res', type: 'researcher', name: 'Code Reader', instructions: 'Explain what the pasted code/diff does: entry points, data flow, dependencies. Keep it to 6 bullets so reviewers have context.', position: { x: 50, y: 100 } },
+      { id: 't6-critic', type: 'critic', name: 'Bug Hunter', instructions: 'Red-team the code for bugs, security issues (injection, auth, secrets), perf traps, and edge cases. Rank findings P0-P2 with line hints.', position: { x: 350, y: 100 } },
+      { id: 't6-editor', type: 'editor', name: 'Fix Proposer', instructions: 'For each P0/P1 finding, propose a minimal concrete fix with a short before/after snippet. Skip style nits.', position: { x: 650, y: 100 } },
+      { id: 't6-sum', type: 'summarizer', name: 'Action Checklist', instructions: 'Merge everything into a ship checklist: must-fix, should-fix, tests to add. End with an Approve / Request-changes verdict.', position: { x: 950, y: 100 } },
+    ],
+    edges: [
+      { id: 't6-e1', source: 't6-res', target: 't6-critic' },
+      { id: 't6-e2', source: 't6-critic', target: 't6-editor' },
+      { id: 't6-e3', source: 't6-editor', target: 't6-sum' },
+    ],
+  },
+  {
+    id: 'startup-validator',
+    name: 'Startup Pitch Validator',
+    description: 'Hackathon startup track: 3 parallel researchers → red-team → pitch',
+    nodes: [
+      { id: 't7-mkt', type: 'researcher', name: 'Market Researcher', instructions: 'Size the market for the idea: ICP, competitors, pricing comps, wedge. 5 bullets with numbers where possible.', position: { x: 50, y: 50 } },
+      { id: 't7-tech', type: 'researcher', name: 'Tech Feasibility', instructions: 'Assess build feasibility on Cloudflare (Workers, AI, DO, R2): architecture sketch, hardest part, effort estimate.', position: { x: 50, y: 200 } },
+      { id: 't7-risk', type: 'researcher', name: 'Risk Researcher', instructions: 'List top risks: technical, legal, GTM, moat. For each, one mitigation. Be blunt.', position: { x: 50, y: 350 } },
+      { id: 't7-critic', type: 'critic', name: 'Red Team', instructions: 'Steel-man the case AGAINST this startup using the three research briefs. Kill the hype: 5 reasons it fails.', position: { x: 400, y: 200 } },
+      { id: 't7-writer', type: 'writer', name: 'Pitch Writer', instructions: 'Write a 150-word hackathon pitch that survives the red-team: problem, solution, why-now, demo plan, ask. End with a one-line verdict: Build / Pivot / Kill.', position: { x: 700, y: 200 } },
+    ],
+    edges: [
+      { id: 't7-e1', source: 't7-mkt', target: 't7-critic' },
+      { id: 't7-e2', source: 't7-tech', target: 't7-critic' },
+      { id: 't7-e3', source: 't7-risk', target: 't7-critic' },
+      { id: 't7-e4', source: 't7-critic', target: 't7-writer' },
+    ],
+  },
+  {
+    id: 'fact-check',
+    name: 'Fact-Check Desk',
+    description: 'Hackathon trust track: research → verify → correct → publish with sources',
+    nodes: [
+      { id: 't8-res', type: 'researcher', name: 'Claim Extractor', instructions: 'Extract every factual claim from the input as a numbered list. Separate facts from opinions.', position: { x: 50, y: 100 } },
+      { id: 't8-critic', type: 'critic', name: 'Verifier', instructions: 'Verify each claim: Supported / Disputed / Unverifiable. Flag hallucinations, stale stats, and missing context. Be strict.', position: { x: 350, y: 100 } },
+      { id: 't8-editor', type: 'editor', name: 'Corrector', instructions: 'Rewrite the original content with corrections inline. Keep the author voice, fix only what the verifier flagged.', position: { x: 650, y: 100 } },
+      { id: 't8-pub', type: 'publisher', name: 'Cited Publisher', instructions: 'Publish the final: corrected text, then a Sources & confidence section listing each claim verdict. End with an overall trust score out of 10.', position: { x: 950, y: 100 } },
+    ],
+    edges: [
+      { id: 't8-e1', source: 't8-res', target: 't8-critic' },
+      { id: 't8-e2', source: 't8-critic', target: 't8-editor' },
+      { id: 't8-e3', source: 't8-editor', target: 't8-pub' },
+    ],
+  },
 ];
