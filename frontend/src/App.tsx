@@ -15,6 +15,7 @@ import {
   Bot,
   Eraser,
   FileEdit,
+  Info,
   LayoutTemplate,
   ListCollapse,
   Megaphone,
@@ -29,6 +30,7 @@ import {
 } from 'lucide-react';
 
 import { AgentNode, type AgentNodeData } from '@/components/AgentNode';
+import { AboutDialog } from '@/components/AboutDialog';
 import { ArtifactPanel } from '@/components/ArtifactPanel';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -80,6 +82,7 @@ export default function App() {
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
   const [showArtifacts, setShowArtifacts] = useState(false);
   const [templatesOpen, setTemplatesOpen] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
   const nodeIdCounter = useRef(0);
 
@@ -341,6 +344,9 @@ export default function App() {
           </Badge>
         )}
         <div className="flex-1" />
+        <Button variant="ghost" size="icon" title="How it's built" onClick={() => setAboutOpen(true)}>
+          <Info />
+        </Button>
         <Dialog open={templatesOpen} onOpenChange={setTemplatesOpen}>
           <DialogTrigger asChild>
             <Button variant="secondary">
@@ -507,6 +513,7 @@ export default function App() {
       </div>
 
       <Toaster position="bottom-right" />
+      <AboutDialog open={aboutOpen} onOpenChange={setAboutOpen} />
     </div>
   );
 }
