@@ -75,6 +75,7 @@ export default function App() {
   const [workflowName, setWorkflowName] = useState('My Agent Swarm');
   const [inputText, setInputText] = useState('');
   const [isExecuting, setIsExecuting] = useState(false);
+  const [executionId, setExecutionId] = useState<string | null>(null);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
   const [showArtifacts, setShowArtifacts] = useState(false);
@@ -231,6 +232,7 @@ export default function App() {
       });
       if (!res.ok) throw new Error('execute failed');
       const { executionId: eid } = await res.json();
+      setExecutionId(eid);
 
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const ws = new WebSocket(`${protocol}//${window.location.host}/api/ws?executionId=${eid}`);
@@ -308,6 +310,7 @@ export default function App() {
     setNodes([]);
     setEdges([]);
     setSelectedNodeId(null);
+    setExecutionId(null);
     setArtifacts([]);
     setShowArtifacts(false);
   };
@@ -494,7 +497,13 @@ export default function App() {
           </ReactFlow>
         </div>
 
-        {showArtifacts && <ArtifactPanel artifacts={artifacts} onClose={() => setShowArtifacts(false)} />}
+        {showArtifacts && (
+          <ArtifactPanel
+            artifacts={artifacts}
+            executionId={executionId}
+            onClose={() => setShowArtifacts(false)}
+          />
+        )}
       </div>
 
       <Toaster position="bottom-right" />

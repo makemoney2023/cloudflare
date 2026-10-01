@@ -36,6 +36,7 @@ export interface NodeResult {
 export interface WorkflowExecution {
   id: string;
   workflowId: string;
+  input: string;
   status: 'running' | 'completed' | 'failed';
   results: Record<string, NodeResult>;
   startedAt: number;

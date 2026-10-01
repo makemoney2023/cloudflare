@@ -1,6 +1,7 @@
 import type { Workflow, WorkflowExecution, WSMessage, NodeResult, AgentMemory, MemoryEntry, Artifact, WorkflowTemplate } from '../types';
 import { runAgent } from '../ai/agents';
 import { WORKFLOW_TEMPLATES } from '../types';
+import { generateReportPdf } from '../pdf/report';
 
 export class WorkflowDO {
   private state: DurableObjectState;
@@ -90,6 +91,7 @@ export class WorkflowDO {
       const execution: WorkflowExecution = {
         id: executionId,
         workflowId: body.workflowId,
+        input: body.input,
         status: 'running',
         results: {},
         startedAt: Date.now(),
@@ -132,6 +134,35 @@ export class WorkflowDO {
         // Fall through to empty artifacts below.
       }
       return Response.json([]);
+    }
+
+    // Download a finalized PDF report for an execution
+    if (url.pathname === '/report' && request.method === 'GET') {
+      const executionId = url.searchParams.get('executionId');
+      const execution = executionId ? this.executions.get(executionId) : null;
+      if (!execution) {
+        return new Response('Execution not found', { status: 404 });
+      }
+      const workflow = this.workflows.get(execution.workflowId);
+      if (!workflow) {
+        return new Response('Workflow not found', { status: 404 });
+      }
+      const pdf = await generateReportPdf(execution, workflow);
+      try {
+        await this.env.ARTIFACTS.put(`reports/${executionId}.pdf`, pdf, {
+          httpMetadata: { contentType: 'application/pdf' },
+        });
+      } catch {
+        // R2 backup is best-effort.
+      }
+      const safeName = (workflow.name || 'swarm').replace(/[^a-z0-9-_]+/gi, '-').slice(0, 60);
+      return new Response(pdf, {
+        headers: {
+          'Content-Type': 'application/pdf',
+          'Content-Disposition': `attachment; filename="${safeName}-report.pdf"`,
+          'Cache-Control': 'no-store',
+        },
+      });
     }
 
     // Get memory for an agent type

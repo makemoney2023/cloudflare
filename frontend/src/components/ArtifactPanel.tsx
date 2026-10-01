@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Check, Copy, PackageOpen, X } from 'lucide-react';
+import { Check, Copy, FileDown, PackageOpen, X } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -49,9 +49,11 @@ function ArtifactCard({ artifact }: { artifact: Artifact }) {
 
 export function ArtifactPanel({
   artifacts,
+  executionId,
   onClose,
 }: {
   artifacts: Artifact[];
+  executionId: string | null;
   onClose: () => void;
 }) {
   return (
@@ -61,9 +63,24 @@ export function ArtifactPanel({
           <CardTitle className="text-sm">Artifacts</CardTitle>
           <Badge variant="secondary">{artifacts.length}</Badge>
         </div>
-        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={onClose}>
-          <X />
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 text-xs"
+            disabled={!executionId}
+            title={executionId ? 'Download a finalized PDF report' : 'Run a workflow first'}
+            onClick={() => {
+              if (executionId) window.open('/api/report?executionId=' + executionId, '_blank');
+            }}
+          >
+            <FileDown />
+            PDF
+          </Button>
+          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={onClose}>
+            <X />
+          </Button>
+        </div>
       </CardHeader>
       {artifacts.length === 0 ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-2 p-8 text-center">
