@@ -4,14 +4,16 @@ import { WORKFLOW_TEMPLATES } from '../types';
 
 export class WorkflowDO {
   private state: DurableObjectState;
+  private env: any;
   private workflows: Map<string, Workflow> = new Map();
   private executions: Map<string, WorkflowExecution> = new Map();
   private websockets: Map<string, WebSocket[]> = new Map();
   private memories: Map<string, AgentMemory> = new Map();
   private artifacts: Map<string, Artifact[]> = new Map();
 
-  constructor(state: DurableObjectState) {
+  constructor(state: DurableObjectState, env: any) {
     this.state = state;
+    this.env = env;
     this.state.blockConcurrencyWhile(async () => {
       const stored = await this.state.storage.list();
       for (const [key, value] of stored) {
@@ -39,6 +41,16 @@ export class WorkflowDO {
     // Save workflow
     if (url.pathname === '/save' && request.method === 'POST') {
       const workflow = await request.json() as Workflow;
+      if (
+        !workflow ||
+        typeof workflow.id !== 'string' ||
+        !Array.isArray(workflow.nodes) ||
+        !Array.isArray(workflow.edges) ||
+        workflow.nodes.length === 0 ||
+        workflow.nodes.length > 30
+      ) {
+        return new Response('Invalid workflow', { status: 400 });
+      }
       this.workflows.set(workflow.id, workflow);
       await this.state.storage.put(`wf:${workflow.id}`, workflow);
       return Response.json({ success: true });
@@ -71,6 +83,9 @@ export class WorkflowDO {
     // Execute workflow
     if (url.pathname === '/execute' && request.method === 'POST') {
       const body = await request.json() as { workflowId: string; input: string };
+      if (!body || typeof body.workflowId !== 'string' || typeof body.input !== 'string' || body.input.trim().length === 0 || body.input.length > 8000) {
+        return new Response('Invalid execution request', { status: 400 });
+      }
       const executionId = crypto.randomUUID();
       const execution: WorkflowExecution = {
         id: executionId,
@@ -82,8 +97,8 @@ export class WorkflowDO {
       this.executions.set(executionId, execution);
       await this.state.storage.put(`ex:${executionId}`, execution);
 
-      // Start execution asynchronously
-      this.executeWorkflow(executionId, body.workflowId, body.input);
+      // Start execution asynchronously and keep the Durable Object alive.
+      this.state.waitUntil(this.executeWorkflow(executionId, body.workflowId, body.input));
 
       return Response.json({ executionId });
     }
@@ -98,8 +113,25 @@ export class WorkflowDO {
     // Get artifacts for an execution
     if (url.pathname === '/artifacts' && request.method === 'GET') {
       const executionId = url.searchParams.get('executionId');
-      const arts = executionId ? this.artifacts.get(executionId) || [] : [];
-      return Response.json(arts);
+      if (!executionId) {
+        return Response.json([]);
+      }
+      const cached = this.artifacts.get(executionId);
+      if (cached) {
+        return Response.json(cached);
+      }
+      try {
+        const backup = await this.env.ARTIFACTS.get(`artifacts/${executionId}.json`);
+        if (backup) {
+          const parsed = JSON.parse(await backup.text());
+          const arts = Array.isArray(parsed.artifacts) ? parsed.artifacts : [];
+          this.artifacts.set(executionId, arts);
+          return Response.json(arts);
+        }
+      } catch {
+        // Fall through to empty artifacts below.
+      }
+      return Response.json([]);
     }
 
     // Get memory for an agent type
@@ -306,6 +338,7 @@ export class WorkflowDO {
                 this.artifacts.set(executionId, []);
               }
               this.artifacts.get(executionId)!.push(artifact);
+              await this.state.storage.put(`art:${executionId}`, this.artifacts.get(executionId));
 
               // Store memory
               this.addMemory(node.type, result, executionId);
@@ -360,6 +393,7 @@ export class WorkflowDO {
       execution.status = 'completed';
       execution.finishedAt = Date.now();
       await this.state.storage.put(`ex:${executionId}`, execution);
+      await this.backupArtifactsToR2(executionId);
 
       this.broadcast(executionId, {
         type: 'workflow_complete',
@@ -400,8 +434,16 @@ export class WorkflowDO {
     this.state.storage.put(`mem:${key}`, mem);
   }
 
-  private get env(): any {
-    // @ts-ignore
-    return (this.state as any).env || {};
+  private async backupArtifactsToR2(executionId: string) {
+    try {
+      const artifacts = this.artifacts.get(executionId) || [];
+      await this.env.ARTIFACTS.put(
+        `artifacts/${executionId}.json`,
+        JSON.stringify({ executionId, artifacts, savedAt: Date.now() }),
+        { httpMetadata: { contentType: 'application/json' } },
+      );
+    } catch {
+      // R2 backup is best-effort; live artifacts remain in Durable Object storage.
+    }
   }
 }

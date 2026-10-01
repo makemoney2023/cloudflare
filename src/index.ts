@@ -14,20 +14,14 @@ export default {
 
     // Serve static files
     if (url.pathname === '/' || url.pathname === '/index.html') {
-      return new Response(HTML, {
-        headers: { 'Content-Type': 'text/html' },
+      return new Response(getHTML(), {
+        headers: { 'Content-Type': 'text/html', 'Cache-Control': 'no-store' },
       });
     }
 
     if (url.pathname === '/styles.css') {
       return new Response(CSS, {
-        headers: { 'Content-Type': 'text/css' },
-      });
-    }
-
-    if (url.pathname === '/app.js') {
-      return new Response(APP_JS, {
-        headers: { 'Content-Type': 'application/javascript' },
+        headers: { 'Content-Type': 'text/css', 'Cache-Control': 'public, max-age=3600' },
       });
     }
 
@@ -44,7 +38,8 @@ export default {
   },
 };
 
-const HTML = `<!DOCTYPE html>
+function getHTML() {
+  return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -59,9 +54,23 @@ const HTML = `<!DOCTYPE html>
 </head>
 <body>
   <div id="root"></div>
-  <script type="text/babel" data-presets="react" src="/app.js"></script>
+  <div id="boot-error" style="display:none;position:fixed;left:16px;right:16px;bottom:16px;background:#7f1d1d;color:#fff;padding:12px 16px;border-radius:8px;font-size:13px;z-index:1000;"></div>
+  <script>
+    window.addEventListener('error', function (e) {
+      var err = document.getElementById('boot-error');
+      var root = document.getElementById('root');
+      if (err && root && !root.hasChildNodes()) {
+        err.style.display = 'block';
+        err.textContent = 'UI failed to start: ' + (e.message || 'unknown error');
+      }
+    }, true);
+  </script>
+  <script type="text/babel" data-presets="react">
+${APP_JS}
+  </script>
 </body>
 </html>`;
+}
 
 const CSS = `* { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f172a; color: #e2e8f0; overflow: hidden; }
@@ -89,7 +98,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 
 const APP_JS = `
 const { useState, useEffect, useCallback, useRef } = React;
-const { ReactFlow, Background, Controls, MiniMap, addEdge, useNodesState, useEdgesState, Handle, Position } = ReactFlow;
+const RF = window.ReactFlow;
+const { ReactFlow: ReactFlowCanvas, Background, Controls, MiniMap, addEdge, useNodesState, useEdgesState, Handle, Position } = RF;
 
 const AGENT_TYPES = {
   researcher: { name: 'Researcher', color: '#3B82F6', icon: '\\uD83D\\uDD0D' },
@@ -325,8 +335,9 @@ function App() {
       .then((tmpl) => {
         if (tmpl.nodes) {
           const newNodes = tmpl.nodes.map((n) => ({
-            ...n,
             id: n.id + '-' + (++nodeIdCounter.current),
+            type: 'agent',
+            position: n.position,
             data: {
               agentType: n.type,
               name: n.name,
@@ -355,6 +366,9 @@ function App() {
   const updateNodeData = (nodeId, updates) => {
     setNodes((nds) =>
       nds.map((n) => (n.id === nodeId ? { ...n, data: { ...n.data, ...updates } } : n))
+    );
+    setSelectedNode((prev) =>
+      prev && prev.id === nodeId ? { ...prev, data: { ...prev.data, ...updates } } : prev
     );
   };
 
@@ -618,7 +632,7 @@ function App() {
 
         {/* Canvas */}
         <div style={{ flex: 1 }}>
-          <ReactFlow
+          <ReactFlowCanvas
             nodes={nodes}
             edges={edges}
             onNodesChange={onNodesChange}
@@ -636,7 +650,7 @@ function App() {
               nodeColor={(n) => AGENT_TYPES[n.data?.agentType]?.color || '#64748b'}
               style={{ background: '#1e293b' }}
             />
-          </ReactFlow>
+          </ReactFlowCanvas>
         </div>
 
         {/* Templates Modal */}
@@ -667,8 +681,8 @@ function App() {
                       background: '#0f172a', border: '1px solid #334155', borderRadius: 12,
                       padding: 16, cursor: 'pointer', transition: 'border-color 0.2s',
                     }}
-                    onMouseEnter={(e) => e.target.style.borderColor = '#3b82f6'}
-                    onMouseLeave={(e) => e.target.style.borderColor = '#334155'}
+                    onMouseEnter={(e) => e.currentTarget.style.borderColor = '#3b82f6'}
+                    onMouseLeave={(e) => e.currentTarget.style.borderColor = '#334155'}
                   >
                     <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>{tmpl.name}</div>
                     <div style={{ fontSize: 12, color: '#94a3b8' }}>{tmpl.desc}</div>

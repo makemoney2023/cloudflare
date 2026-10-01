@@ -18,6 +18,10 @@ export async function runAgent(type: AgentType, options: AgentRunOptions, env: a
     { role: 'user', content: userPrompt },
   ];
 
+  if (!env || !env.AI) {
+    throw new Error('Workers AI binding is not available.');
+  }
+
   try {
     const stream = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
       messages,
@@ -52,14 +56,23 @@ export async function runAgent(type: AgentType, options: AgentRunOptions, env: a
       }
     }
 
-    return fullOutput.trim();
+    const streamed = fullOutput.trim();
+    if (streamed) {
+      return streamed.slice(0, 8000);
+    }
   } catch (error) {
-    // Fallback: non-streaming
-    const response = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
-      messages,
-    });
-    return (response as any).response?.trim() || 'Agent failed to produce output.';
+    // Fall through to non-streaming below.
   }
+
+  // Fallback: non-streaming
+  const response = await env.AI.run('@cf/meta/llama-3.1-8b-instruct', {
+    messages,
+  });
+  const output = (response as any).response?.trim();
+  if (!output) {
+    throw new Error('Agent failed to produce output.');
+  }
+  return output.slice(0, 8000);
 }
 
 function buildSystemPrompt(type: AgentType, name: string, instructions: string): string {
