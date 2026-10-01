@@ -1,6 +1,7 @@
 name = "agent-swarm-orchestrator"
 main = "src/index.ts"
 compatibility_date = "2024-09-01"
+account_id = "b7736584eef97989db8f42832b1ba2d2"
 
 [ai]
 binding = "AI"
@@ -11,7 +12,7 @@ class_name = "WorkflowDO"
 
 [[migrations]]
 tag = "v1"
-new_classes = ["WorkflowDO"]
+new_sqlite_classes = ["WorkflowDO"]
 
 [[r2_buckets]]
 binding = "ARTIFACTS"

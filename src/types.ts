@@ -80,35 +80,44 @@ export interface Artifact {
   timestamp: number;
 }
 
+const DEFAULT_INSTRUCTIONS: Record<AgentType, string> = {
+  researcher: 'Research the given topic thoroughly. Provide key facts, data points, and context. Be comprehensive but concise.',
+  writer: 'Write clear, engaging content based on the input. Adapt tone and style to the target audience.',
+  editor: 'Review and improve the content. Fix grammar, improve clarity, and ensure consistency. Return the polished version.',
+  publisher: 'Format the final content for publication. Add structure, headings, and any final touches.',
+  critic: 'Critically analyze the content. Identify weaknesses, gaps, and areas for improvement. Be constructive but thorough.',
+  summarizer: 'Summarize the key points concisely. Capture the essential information without losing important details.',
+};
+
 export const AGENT_DEFAULTS: Record<AgentType, { name: string; instructions: string; color: string }> = {
   researcher: {
     name: 'Researcher',
-    instructions: 'Research the given topic thoroughly. Provide key facts, data points, and context. Be comprehensive but concise.',
+    instructions: DEFAULT_INSTRUCTIONS.researcher,
     color: '#3B82F6',
   },
   writer: {
     name: 'Writer',
-    instructions: 'Write clear, engaging content based on the input. Adapt tone and style to the target audience.',
+    instructions: DEFAULT_INSTRUCTIONS.writer,
     color: '#8B5CF6',
   },
   editor: {
     name: 'Editor',
-    instructions: 'Review and improve the content. Fix grammar, improve clarity, and ensure consistency. Return the polished version.',
+    instructions: DEFAULT_INSTRUCTIONS.editor,
     color: '#F59E0B',
   },
   publisher: {
     name: 'Publisher',
-    instructions: 'Format the final content for publication. Add structure, headings, and any final touches.',
+    instructions: DEFAULT_INSTRUCTIONS.publisher,
     color: '#10B981',
   },
   critic: {
     name: 'Critic',
-    instructions: 'Critically analyze the content. Identify weaknesses, gaps, and areas for improvement. Be constructive but thorough.',
+    instructions: DEFAULT_INSTRUCTIONS.critic,
     color: '#EF4444',
   },
   summarizer: {
     name: 'Summarizer',
-    instructions: 'Summarize the key points concisely. Capture the essential information without losing important details.',
+    instructions: DEFAULT_INSTRUCTIONS.summarizer,
     color: '#06B6D4',
   },
 };
@@ -181,12 +190,3 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
     ],
   },
 ];
-
-const DEFAULT_INSTRUCTIONS: Record<AgentType, string> = {
-  researcher: 'Research the given topic thoroughly. Provide key facts, data points, and context. Be comprehensive but concise.',
-  writer: 'Write clear, engaging content based on the input. Adapt tone and style to the target audience.',
-  editor: 'Review and improve the content. Fix grammar, improve clarity, and ensure consistency. Return the polished version.',
-  publisher: 'Format the final content for publication. Add structure, headings, and any final touches.',
-  critic: 'Critically analyze the content. Identify weaknesses, gaps, and areas for improvement. Be constructive but thorough.',
-  summarizer: 'Summarize the key points concisely. Capture the essential information without losing important details.',
-};
