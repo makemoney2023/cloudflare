@@ -47,7 +47,7 @@ import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { Toaster, toast } from '@/components/ui/sonner';
 import { Textarea } from '@/components/ui/textarea';
-import { AGENT_META, TEMPLATES, type AgentType, type Artifact } from '@/lib/agents';
+import { AGENT_META, PRESET_GROUPS, TEMPLATES, type AgentPreset, type AgentType, type Artifact } from '@/lib/agents';
 
 const nodeTypes = { agent: AgentNode };
 
@@ -93,7 +93,7 @@ export default function App() {
     [setEdges],
   );
 
-  const addAgentNode = (agentType: AgentType) => {
+  const addAgentNode = (agentType: AgentType, preset?: Pick<AgentPreset, 'name' | 'instructions'>) => {
     const meta = AGENT_META[agentType];
     const id = `node-${++nodeIdCounter.current}`;
     const newNode: FlowNode = {
@@ -102,8 +102,8 @@ export default function App() {
       position: { x: 80 + Math.random() * 380, y: 80 + Math.random() * 280 },
       data: {
         agentType,
-        name: meta.name,
-        instructions: meta.instructions,
+        name: preset?.name ?? meta.name,
+        instructions: preset?.instructions ?? meta.instructions,
         status: 'idle',
         output: '',
       },
@@ -441,6 +441,54 @@ export default function App() {
                 );
               })}
             </div>
+          </div>
+
+          <Separator />
+
+          <div className="space-y-2">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Specialists
+            </h3>
+            <p className="-mt-1 text-[11px] leading-snug text-muted-foreground">
+              Pre-configured roles from the hackathon templates.
+            </p>
+            {PRESET_GROUPS.map((group) => (
+              <div key={group.templateId} className="space-y-1 pt-1">
+                <div className="px-1 text-[11px] font-semibold text-muted-foreground">
+                  {group.templateName}
+                </div>
+                <div className="flex flex-col gap-1">
+                  {group.presets.map((preset) => {
+                    const pMeta = AGENT_META[preset.agentType];
+                    const PIcon = ADD_ICONS[pMeta.icon as keyof typeof ADD_ICONS];
+                    return (
+                      <Button
+                        key={preset.id}
+                        variant="ghost"
+                        size="sm"
+                        className="justify-start font-normal"
+                        title={preset.instructions}
+                        onClick={() =>
+                          addAgentNode(preset.agentType, {
+                            name: preset.name,
+                            instructions: preset.instructions,
+                          })
+                        }
+                      >
+                        <span
+                          className="flex h-5 w-5 items-center justify-center rounded text-white"
+                          style={{ backgroundColor: pMeta.color }}
+                        >
+                          <PIcon className="h-3 w-3" />
+                        </span>
+                        {preset.name}
+                        <Plus className="ml-auto h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                      </Button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
 
           {selectedNode && (
